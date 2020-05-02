@@ -1,4 +1,10 @@
+"""
+currently only implemented for training mode
+"""
+
 import math
+import logging
+
 import numpy as np
 np.seterr(over="raise")
 
@@ -21,10 +27,8 @@ class MCTS:
         path: path in a search
         _is_terminate: show whether current processing leaf node is terminate state
     """
-    # player with respect to the canonical form of state
-    __player = 1
     
-    def __init__(self, game, logger, cfg):
+    def __init__(self, game, cfg, debug=False):
         
         self.game           = game
         self.Es             = {}
@@ -38,40 +42,54 @@ class MCTS:
         self._is_terminate  = False
         self._end_value     = 0
         self.cfg            = cfg
-        self.logger         = logger
+        self.default_player = cfg.GAME.DEFAULT_PLAYER
+        self.debug          = debug
     
-    def tree_policy(self, state, temp):
+    def __len__(self):
+        return len(self.Ps)
+    
+    def get_policy(self, state, temp):
         """
         return policy from simulation results
         
         args:
             --state(np.array): canonical board
             --temp(float): temperature that control level of exploration
+        return:
+            --policy (np.array)
         NOTE: this does not run any simulation
         """
         state_str = self.game.stringRepresentation(state)
         counts = [
             self.Nsa[(state_str, a)]
             if (state_str,a) in self.Nsa else 0
-            for a in range(self.game.getActionSize)
+            for a in range(self.game.getActionSize())
         ]
+        # print("tree size", len(self.Ps))
+        # print("count", counts)
+        # print("TEMPPPPPPPPP", temp)
         prob = np.array(counts, dtype=np.float32)
+        if temp == 0:
+            best_act = np.argmax(prob)
+            prob = np.zeros_like(prob)
+            prob[best_act] = 1
+            return prob
+        
         try:
             prob = np.power(prob, 1./temp)
             prob = prob / prob.sum()
+            
             return prob
         except FloatingPointError as e:
             if "overflow" in str(e):
                 best_act = np.argmax(prob)
-                prob = np.ones_like(prob)
+                prob = np.zeros_like(prob)
                 prob[best_act] = 1
                 return prob
             else:
                 print(e)
                 exit()
-        
-            
-        
+
     def search(self, state):
         """
         this a the first step of a simulation
@@ -100,30 +118,35 @@ class MCTS:
             a = self._get_best_action(state_str)
             self.path.append((state_str,a))
             
-            next_state, next_payer = self.game.getNextState(state, MCTS.__player, a)
-            next_state = self.game.getCanonicalForm(next_state, next_payer)
-            state_str = self.game.stringRepresentation(next_state)
+            state, player = self.game.getNextState(state, self.default_player, a)
+            state = self.game.getCanonicalForm(state, player)
+            state_str = self.game.stringRepresentation(state)
+
         
         # append the new state / terminate state
         self.path.append((state_str,None))
         
         # get end game value, get 0 if the game is not ended
         if state_str not in self.Es:
-            end = self.game.getGameEnded(next_state, MCTS.__player)
+            end = self.game.getGameEnded(state, self.default_player)
             self.Es[state_str] = end
         else:
-            end = self.Es(state_str)
+            end = self.Es[state_str]
         
+        if self.debug:
+            print(self.path, f"\nwinner: {end}\n")
         # if terminal state
-        if not end:
+        if end:
             self._end_value = end
             self._is_terminate = True
+            # print(" end game", end)
             return None
         
         # if non-terminal state
         # get update validmove for the leaf node
-        self.v_moves[state_str] = self.game.getValidMoves(next_state, MCTS.__player)
-        return next_state
+        self.v_moves[state_str] = self.game.getValidMoves(state, self.default_player)
+        
+        return state
         
     def process_result(self, p, v):
         """
@@ -195,12 +218,14 @@ class MCTS:
         NOTE: policy is added dirichlet noise to enforce exploration
         """
         v_moves = self.v_moves[state_str]
-        
+        # print("count valid move", v_moves.sum())
+        # print(policy)
         # normalize policy
         pi = policy*v_moves
         sum_valid_policy = pi.sum()
         if sum_valid_policy <= 0:
-            self.logger.info("got zero for all valid move")
+            logging.warning("got zero for all valid move")
+            # print("got zero for all valid move")
             pi += v_moves
             sum_valid_policy = pi.sum()
         pi /= sum_valid_policy
