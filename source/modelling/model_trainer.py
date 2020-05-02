@@ -107,7 +107,9 @@ class ModelTrainer:
         # begin train loop
         self.dataset_iter = iter(self.dataloader)
         self.timers["data"].reset()
-        
+        for loss in self.losses.values:
+            losses.reset()
+            
     def train_loop(self):
         tbar = tqdm(range(len(self.dataloader)))
         for i in tbar:
@@ -151,6 +153,7 @@ class ModelTrainer:
             loss.backward()
             
             if (i+1) % self.cfg.SOLVER.GD_STEPS == 0:
+                self.scheduler.step()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
     
