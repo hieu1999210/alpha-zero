@@ -6,5 +6,5 @@ test*
 README*
 pretrained_models
 # checkpoint
-
+logs.log
 
