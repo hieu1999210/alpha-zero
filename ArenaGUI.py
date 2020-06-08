@@ -1,7 +1,7 @@
 import logging
 
 from tqdm import tqdm
-
+from time import sleep
 log = logging.getLogger(__name__)
 
 
@@ -16,7 +16,7 @@ class ArenaGUI():
         --valid_moves: valid move of player on the current board
         --end_game: game end status of the current board
         --player_id: player to move from the new board
-        --action: the last action that led to the current board
+        --action (tuple(int)): (x,y) the last action that led to the current board
     """
 
     def __init__(self, player1, game, display):
@@ -95,7 +95,7 @@ class ArenaGUI():
         # get new state
         board, player_id = self.game.getNextState(board, player_id, action)
         valid_moves = self.game.getValidMoves(board, player_id)
-        end_game = self.game.getGameEnded(board, player_id)
+        end_game = self.game.getGameEnded(board, player_id)*player_id
         
         # convert action for caching
         if action == len(valid_moves) - 1:
@@ -129,7 +129,9 @@ class ArenaGUI():
                 self.update()
             
             # next turn is human but no valid move
-            if self.player_id == -1 and self.valid_moves[-1] == 1:
+            elif self.player_id == -1 and self.valid_moves[-1] == 1:
+                print("human has no valid move")
+                sleep(5.0)
                 self.update()
             
     def get_scores(self):
