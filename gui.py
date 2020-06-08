@@ -6,22 +6,46 @@ from random import *
 from copy import deepcopy
 from collections import deque
 import numpy as np
-
+import os
 from MCTS import MCTS
 from othello.OthelloGame import OthelloGame
 from othello.pytorch.NNet import NNetWrapper as NNet
 from ArenaGUI import ArenaGUI
 from utils import dotdict
-
+import logging
 COLOR = {
     "valid": "#008000",
     -1: "#fff", # color for white tile
     1: "#000", # color for black tile
-    0: "#222", # background color
+    0: "orange", # background color
     "text": "white",
     "undo": "#000088",
     "arrow": "white",
 }
+
+def get_log(name="main", folder=".", rank=0, file_name='logs.log', console=True):
+    
+    assert os.path.isdir(folder), f'log dir \'{folder}\' does not exist.'
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    if rank > 0:
+        return logger
+    
+    log_format = logging.Formatter(
+        '{asctime}:{name}:  {message}',
+        style='{'
+    )
+    if folder:
+        fh = logging.FileHandler(os.path.join(folder, file_name))
+        fh.setFormatter(log_format)
+        logger.addHandler(fh)
+    
+    if console:
+        ch = logging.StreamHandler(sys.stderr)
+        ch.setFormatter(log_format)
+        logger.addHandler(ch)
+        
+    return logger
 
 class CONFIG:
     board_size = 8
@@ -67,18 +91,18 @@ class GUI:
             --board: current state of the game,
             --valid_moves: valid move of player on the current board
             --end_game: game end status of the current board
-            --player_id: player to move from the new board
+            --player_id: player to move from the current board
             --action: the last action that led to the current board
         
         --histories: list of state of the game
         -- 
     """
-    def __init__(self, root, screen, board_size, undo_size=3):
+    def __init__(self, root, screen, board_size, logger, undo_size=3):
         self.screen = screen
         self.board_size = board_size
         self.root = root
         self.arena = None
-        
+        self.logger = logger
         screen.bind("<Button-1>", self.handle_click)
         screen.bind("<Key>", self.handle_key)
         screen.focus_set()
@@ -98,7 +122,7 @@ class GUI:
         screen.delete(ALL)
         self._display_button()
         self._display_background()
-        
+        self.turn_count = 0
         # reset arena
         if arena is not None:
             assert self.arena is None
@@ -154,7 +178,7 @@ class GUI:
         x = (x_mouse - base_cell) // cell_size
         y = (y_mouse - base_cell) // cell_size
         print("click move", x, y)
-        action = x*self.board_size+y
+        action = x*self.board_size + y
         self.arena.update(action)
 
     def _check_region(self, x , y, region):
@@ -210,7 +234,10 @@ class GUI:
         """
         
         # NOTE: display_new_board require player who took the action
-        self._display_new_board(new_board, -player, action)
+        if undo:
+            self._display_new_board(new_board, -player, None)
+        else:
+            self._display_new_board(new_board, -player, action)
         
         # display score
         self._display_score()
@@ -222,20 +249,46 @@ class GUI:
         elif player == -1:
             # display valid move suggestions for human player
             self._display_valid_moves(valid_moves)
-        
+        self.turn_count += 1
         # update state attributes and histories
         state = (new_board, valid_moves, end_game, player, action)
         self.current_state = state
         self.histories.append(state)
+        self.logger.info(
+            f"turn: {self.turn_count}"
+            f"\n{state[0].transpose()}"
+            f"\nend_game: {state[2]}"
+            f"\nplayer: {state[3]}"
+            f"\naction: {state[4]}")
     
     def undo(self):
         """
-        display prev state, pop newest state from histories
-        do recursively until reach a human move 
-        or there is no human move in histories (i.e. len(histories) == 2)
+        if current turn is human, reverse to previous human turn
+        NOTE: if there is no human move in histories (i.e. len(histories) == 2)
         """
-        pass
-    
+        
+        if self.current_state[3] == 1:
+            print("cannot undo AI turn")
+            return
+        if len(self.histories) <= 2:
+            print("no turn to undo")
+            return
+        assert self.histories[-3][3] == -1, "something wrong"
+        
+        prev_state = self.histories[-3]
+        self.histories.pop()
+        self.histories.pop()
+        self.histories.pop()
+        # reverse arena state
+        self.arena.board = prev_state[0]
+        self.arena.valid_moves = prev_state[1]
+        self.arena.end_game = prev_state[2]
+        self.arena.player_id = prev_state[3]
+        self.arena.action = prev_state[4]
+        # reverse gui
+        self.update_state(*prev_state, undo=True)
+        
+
     def _display_endgame(self, game_result):
         self.screen.delete("end game")
         winner = "AI" if game_result == 1 else "human"
@@ -297,7 +350,7 @@ class GUI:
         # base offset (x0,y0)
         x0 = CONFIG.base_cell
         y0 = x0
-        print("x0", x0)
+        # print("x0", x0)
         screen.delete("highlight")
         
         # sentinel action
@@ -491,7 +544,7 @@ def main():
     )
     screen.pack()
     game = OthelloGame(CONFIG.board_size)
-    
+    logger = get_log()
     # init player 
 
     model = NNet(game)
@@ -501,7 +554,7 @@ def main():
     mcts1 = MCTS(game, model, args1)
     AI_player = lambda x: np.argmax(mcts1.getActionProb(x, temp=0))
 
-    gui = GUI(root, screen, CONFIG.board_size)
+    gui = GUI(root, screen, CONFIG.board_size, logger)
     arena = ArenaGUI(AI_player, game, gui.update_state)
     
     gui.start(arena=arena)
