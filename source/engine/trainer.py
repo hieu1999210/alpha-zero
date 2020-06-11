@@ -37,13 +37,16 @@ def training_context(model):
         model: a torch Module
     """
     training_mode = model.training
-    freeze_mode = model.is_freezed
+    is_freezed = model.is_freezed
     
     model.train()
     model.un_freeze()
     yield
     model.train(training_mode)
-    model.freeze_param(freeze_mode)
+    if is_freezed:
+        model.freeze_param()
+    else:
+        model.un_freeze()
 
 
 class Trainer:
@@ -188,6 +191,8 @@ class Trainer:
         
         best_model.eval()
         self.model.eval()
+        best_model.freeze_param()
+        self.model.freeze_param()
 
         # init and run worker
         self._start_matches(best_model)
@@ -278,7 +283,7 @@ class Trainer:
             "values": values
         }
         
-        self.checkpointer.save_data(exp_file, data, iter=self.iter)
+        self.checkpointer.save_data(exp_file, data, iter=self.iter, epoch=0)
         
         del boards
         del policies

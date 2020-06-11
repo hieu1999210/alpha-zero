@@ -4,3 +4,4 @@
 
 CUDA_VISIBLE_DEVICES=0 python train.py \
     --config "/home/ad/Documents/source/configs/exp2_local.yaml" \
+    --resume

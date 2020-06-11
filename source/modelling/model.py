@@ -9,20 +9,12 @@ def pi_loss(logits, targets):
 
 class BaseModel(nn.Module):
     
-    def freeze_param(self, freeze=True):
-        if self.is_freezed == freeze:
-            return
-        elif freeze:
-            for param in self.parameters():
-                param.requires_grad = False
-            self.is_freezed = True
-        else:
-            self.un_freeze()
-    
-    def un_freeze(self):
-        if not self.is_freezed:
-            return 
+    def freeze_param(self):
+        for param in self.parameters():
+            param.requires_grad = False
+        self.is_freezed = True
         
+    def un_freeze(self):
         for param in self.parameters():
             param.requires_grad = True
         self.is_freezed = False

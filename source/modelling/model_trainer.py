@@ -171,6 +171,7 @@ class ModelTrainer:
         )
         self.checkpointer.save_checkpoint(
             cp_name, 
-            epoch=self.current_epoch, 
+            epoch=self.current_epoch,
+            iter=self.iter, 
 )
 
