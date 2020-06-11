@@ -25,4 +25,4 @@ SOLVER:
 MATCH:
   NUM_MATCHES: 64
 DIRS:
-  OUTPUTS: /home/hieu123/alpha_zero_mp/runs/
+  OUTPUTS: /home/ad/Documents/runs/

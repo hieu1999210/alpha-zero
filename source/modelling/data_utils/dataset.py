@@ -20,8 +20,9 @@ class EXP(Dataset):
         states, policies, values = [], [], []
 
         for iter_id in iter_list:
-            assert f"iter_{iter_id:0>3}" in files[iter_id-1]
-            path = os.path.join(data_folder, files[iter_id-1])
+            assert f"iter_{iter_id:0>3}" in files[iter_id-1]["data_name"], \
+                f"got iter {iter_id} and files_list: {files}"
+            path = os.path.join(data_folder, files[iter_id-1]["data_name"])
             data = torch.load(path)
             states.append(data["states"])
             policies.append(data["policies"])

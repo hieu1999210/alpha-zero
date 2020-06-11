@@ -28,7 +28,7 @@ def setup_listen_logger(folder=".", file_name='logs.log', console=True):
     setup logger for the listener process
     """
     root = logging.getLogger()
-    formatter = logging.Formatter('{asctime}:{processName}:  {message}', style='{')
+    formatter = logging.Formatter('{asctime}:  {message}', style='{')
     root.setLevel(logging.INFO)
 
     if folder:

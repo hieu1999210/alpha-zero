@@ -27,7 +27,7 @@ class Selfplay(Process):
     """
     def __init__(
         self, pid, model, game, exp_queue, logging_queue, global_games_count,
-        barrier, total_num_games, cfg,
+        barrier, cfg, p1_wins, p2_wins,
     ):
         assert not model.training, "model is not in the eval mode"
         assert model.is_freezed, "model is not freezed"
@@ -43,19 +43,21 @@ class Selfplay(Process):
         self.logging_queue          = logging_queue
         self.global_games_count     = global_games_count
         self.barrier                = barrier
-        self.total_num_games        = total_num_games
+        self.total_num_games        = cfg.SELF_PLAY.GAME_PER_ITER
         self.n_simuls               = cfg.MCTS.NUM_SIMULATION_PER_STEP
-        self.worker_games_count      = 0
+        self.worker_games_count     = 0
         self.temp_thresh            = cfg.SELF_PLAY.TEMP_THRESH
         self.cfg                    = cfg
         self.batch_size             = batch_size
         self.default_player         = default_player
-
+        self.win_count              = [None, p1_wins, p2_wins]
+        self.verbose_freq           = cfg.SELF_PLAY.VERBOSE_FREQ
+        self.worker_name            = f"self_worker_{self.process_id:0>2}"
         # init for batch of players
-        self.players                    = [default_player]*batch_size
-        self.steps_count                = [1]*batch_size
-        self.canonicals                 = [None]*batch_size
-        self.histories                  = [[] for _ in range(batch_size)]
+        self.players                = [default_player]*batch_size
+        self.steps_count            = [1]*batch_size
+        self.canonicals             = [None]*batch_size
+        self.histories              = [[] for _ in range(batch_size)]
         self.MCTSs = [MCTS(game, cfg) for _ in range(batch_size)]
         self.states = [game.getInitBoard() for _ in range(batch_size)]
         self.inp_tensor = torch.zeros(
@@ -64,7 +66,7 @@ class Selfplay(Process):
 
     def run(self):
         setup_worker_logger(self.logging_queue)
-        logging.info(f"started")
+        logging.info(f"{self.worker_name}: started")
         
         while self.global_games_count.value < self.total_num_games:
             self._gen_canonicals()
@@ -72,7 +74,10 @@ class Selfplay(Process):
                 self._run_simulation()
             self._transition()
         
-        logging.info(f"finished, runned {self.worker_games_count} games")
+        logging.info(
+            f"{self.worker_name}: finished, "
+            f"runned {self.worker_games_count} games")
+        # torch.cuda.empty_cache()
         self.barrier.wait()
     
     def _gen_canonicals(self):
@@ -125,7 +130,7 @@ class Selfplay(Process):
                 self.states[i], self.players[i], action
             )
             
-            winner = self.game.getGameEnded(next_state, next_player)
+            winner = self.game.getGameEnded(next_state, next_player)*next_player
             
             # game is not end
             if winner == 0:
@@ -137,12 +142,21 @@ class Selfplay(Process):
                 with self.global_games_count.get_lock():
                     self.global_games_count.value += 1
                     game_count = self.global_games_count.value
-                    logging.info(
-                        f"{game_count:0>3}-th game: "
-                        f"tree_size {len(self.MCTSs[i])} "
-                        f"num_steps {self.steps_count[i]} "
-                        f"winner: {winner}"
-                    )
+                    if game_count % self.verbose_freq == 0:
+                        logging.info(
+                            f"{self.worker_name}: "
+                            f"{game_count:0>3}-th game: "
+                            f"tree_size {len(self.MCTSs[i])} "
+                            f"num_steps {self.steps_count[i]} "
+                            f"winner: {winner}"
+                        )
+                        logging.info(
+                            f"{self.worker_name}: "
+                            f"player1 wins: {self.win_count[1].value:0>3}  "
+                            f"player2 wins: {self.win_count[-1].value:0>3}")
+                win_count = self.win_count[winner]
+                with win_count.get_lock():
+                    win_count.value +=1
                 self.worker_games_count += 1
                 self._process_history(i, winner)
                 self._reset_game(i)

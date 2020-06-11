@@ -5,6 +5,7 @@ currently only implemented for training mode
 import math
 import logging
 
+import torch
 import numpy as np
 np.seterr(over="raise")
 
@@ -28,7 +29,7 @@ class MCTS:
         _is_terminate: show whether current processing leaf node is terminate state
     """
     
-    def __init__(self, game, cfg, debug=False):
+    def __init__(self, game, cfg, model = None, debug=False):
         
         self.game           = game
         self.Es             = {}
@@ -44,9 +45,40 @@ class MCTS:
         self.cfg            = cfg
         self.default_player = cfg.GAME.DEFAULT_PLAYER
         self.debug          = debug
-    
+        self.model          = model
+        self.device         = cfg.DEVICE
+        
     def __len__(self):
         return len(self.Ps)
+    
+    def get_policy_infer(self, state, temp):
+        """
+        get policy in inference mode
+        """
+        assert self.model
+        
+        n_simuls = self.cfg.MCTS.NUM_SIMULATION_PER_STEP
+        
+        # run simulation
+        for _ in range(n_simuls):
+            # search
+            new_state = self.search(state)
+            
+            # evaluate new state
+            if new_state is None:
+                p, v = None, None
+            else:
+                with torch.no_grad():
+                    h, w = new_state.shape
+                    input_tensor = torch.from_numpy(new_state).float().view(1,1,h,w).to(self.device)
+                    policies, values = self.model(input_tensor)
+                    p = policies.detach().cpu().numpy()[0]
+                    v = values.detach().cpu().numpy()[0]
+            
+            # expand and backprop
+            self.process_result(p, v)
+                
+        return self.get_policy(state, temp)
     
     def get_policy(self, state, temp):
         """
@@ -234,6 +266,7 @@ class MCTS:
         alpha = self.cfg.MCTS.DIRICHLET_ALPHA
         weight = self.cfg.MCTS.DIRICHLET_WEIGHT
         num_action = v_moves.sum()
+        v_moves = v_moves.astype(np.bool)
         dirichlet = np.random.dirichlet(alpha*np.ones((num_action,)))
         
         # add dirichlet noise

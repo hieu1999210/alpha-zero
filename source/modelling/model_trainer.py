@@ -80,9 +80,13 @@ class ModelTrainer:
         self.timers["epoch"].reset()
 
     
-    def train(self):
+    def train(self, start_epoch=0):
+        """
+        NOTE: epoch counter start at 1
+        """
         num_epoch = self.cfg.SOLVER.NUM_EPOCHS
-
+        if start_epoch != 0:
+            self.current_epoch = start_epoch
         self.timers["epoch"].start()
         while self.current_epoch <= num_epoch:
             self.begin_epoch()
@@ -107,8 +111,8 @@ class ModelTrainer:
         # begin train loop
         self.dataset_iter = iter(self.dataloader)
         self.timers["data"].reset()
-        for loss in self.losses.values:
-            losses.reset()
+        for loss in self.losses.values():
+            loss.reset()
             
     def train_loop(self):
         tbar = tqdm(range(len(self.dataloader)))

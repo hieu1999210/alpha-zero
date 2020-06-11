@@ -6,6 +6,7 @@ import threading
 from contextlib import contextmanager
 
 import torch
+import numpy as np
 import torch.multiprocessing as mp 
 
 from modelling import (
@@ -15,6 +16,9 @@ from modelling import (
 )
 from games import build_game
 from .selfplay_process import Selfplay
+from .matches_process import Match
+from .mcts import MCTS
+from .Arena import Arena
 from utils import (
     setup_listen_logger, 
     listener_process, 
@@ -52,27 +56,53 @@ class Trainer:
         
     """
     
-    def __init__(self, cfg):
+    def __init__(self, cfg, resume=False):
         
-        os.makedirs(cfg.DIRS.EXPERIMENT, exist_ok=True)
+        if not resume:
+            _dir = cfg.DIRS.EXPERIMENT
+            # assert not os.path.exists(_dir), f"{_dir} exits"
+            os.makedirs(_dir)
         setup_listen_logger(folder=cfg.DIRS.EXPERIMENT)
         
         self.game               = self.build_game(cfg)
         self.model              = self.build_model(self.game, cfg)       
         self.cfg                = cfg
         self.num_iter           = cfg.SOLVER.NUM_ITERS
-        self.num_workers        = cfg.SELF_PLAY.NUM_WORKER
-        self.games_per_iter     = cfg.SELF_PLAY.GAME_PER_ITER
+        
+        ### atributes for selfplay
+        self.num_self_workers   = cfg.SELF_PLAY.NUM_WORKER
         self.game_count         = mp.Value('i', 0)
         self.exp_queue          = mp.Queue()
-        self.logging_queue      = mp.Queue()
-        self.barrier            = mp.Barrier(self.num_workers+1)
+        self.self_logging_queue = mp.Queue()
+        self.self_barrier       = mp.Barrier(self.num_self_workers+1)
+        self.self1_wins_count   = mp.Value("i", 0)
+        self.self2_wins_count   = mp.Value("i", 0)
+        
+        ### atributes for compare models
+        self.num_match_workers  = cfg.MATCH.NUM_WORKERS
+        self.match_barrier      = mp.Barrier(self.num_match_workers+1)
+        self.matches_count      = mp.Value('i', 0)
+        self.match_log_queue    = mp.Queue()
+        # count for new model
+        self.new_wins_count     = mp.Value("i", 0)
+        # count for best old model
+        self.old_wins_count     = mp.Value("i", 0)
+        
         self.start_iter         = 1
         self.checkpointer = Checkpointer(
             cfg, logging.getLogger(), self.model
         )
         self.model_trainer = ModelTrainer(self.model, self.checkpointer, cfg)
         
+        
+        
+        exp_path = os.path.join(cfg.DIRS.EXPERIMENT, "training_data")
+        os.makedirs(exp_path, exist_ok=True) ############### fix later
+        self.exp_folder = exp_path
+        
+        logging.info(f"=========> {cfg.EXPERIMENT} <=========")
+        logging.info(f'\n\nStart with config {cfg}')
+        self.epoch, self.iter = self.checkpointer.load_resume()
         self.timers = {
             "selfplay": Timer(),
             "train": Timer(),
@@ -80,36 +110,37 @@ class Trainer:
             "iter": Timer()
         }
         
-        exp_path = os.path.join(cfg.DIRS.EXPERIMENT, "training_data")
-        os.makedirs(exp_path, exist_ok=True) ############### fix later
-        self.exp_folder = exp_path
-        
-        
-        logging.info(f"=========> {cfg.EXPERIMENT} <=========")
-        logging.info(f'\n\nStart with config {cfg}')
-        
     def run(self):
         """
         run training procedure 
+        
+        NOTE: in a iter if current epoch >0 selfplay is skipped
+        
         """
-        for idx in range(self.start_iter, self.num_iter+1):
-            self.iter = idx
+        _iter = self.iter
+        while _iter <= self.num_iter:
             
-            logging.info(f"\n\n******** iter {idx} **********")
+            logging.info(f"\n\n******** iter {_iter} **********")
             self.timers["iter"].start()
             
-            logging.info("\n***SELFPLAY***")
-            self.selfplay(idx)
+            if self.epoch == 0:
+                logging.info("\n***SELFPLAY***")
+                self.selfplay(_iter)
             
             logging.info("\n***TRAIN MODEL***")
             with training_context(self.model):
                 self.train_model()
             
+            # if _iter >= 2:
             logging.info("\n***COMPARE MODEL***")
             self.compare_models()
             
             self.timers["iter"].stop()
             logging.info(f"iter time: {self.timers['iter']}\n")
+            
+            self.epoch = 0
+            _iter += 1
+            self.iter = _iter
     
     def selfplay(self, idx):
         """
@@ -124,17 +155,20 @@ class Trainer:
         self._start_selfplay()
         
         # wait all workers
-        self.barrier.wait()
+        self.self_barrier.wait()
         
         self.timers["selfplay"].stop()
+        logging.info(f"player1 wins: {self.self1_wins_count.value:0>3}  "
+                     f"player2 wins: {self.self2_wins_count.value:0>3}")
         logging.info(f"selfplay time: {self.timers['selfplay']}")
         
         # collect sample
         self._collect_samples(idx)
         
         # terminate selfplay process and reset atributes
-        self._reset_workers()
-
+        self._reset_selfplay()
+        # torch.cuda.empty_cache()
+        
     def train_model(self):
         """
         create dataloader
@@ -143,14 +177,43 @@ class Trainer:
         self.timers["train"].start()
         dataloader = self._build_dataset()
         self.model_trainer.reset(dataloader, self.iter)
-        self.model_trainer.train()
+        self.model_trainer.train(self.epoch)
         self.timers["train"].stop()
         logging.info(f"training time: {self.timers['train']}")
-        
+
     def compare_models(self):
-        """
-        """
-        pass
+        self.timers["compare"].start()
+        best_model = self.build_model(self.game, self.cfg)
+        self.checkpointer.load_best_cp(best_model)
+        
+        best_model.eval()
+        self.model.eval()
+
+        # init and run worker
+        self._start_matches(best_model)
+        
+        # wait all workers
+        self.match_barrier.wait()
+
+        new_wins = self.new_wins_count.value
+        old_wins = self.old_wins_count.value
+        logging.info(f"NEW/PREV WINS : {new_wins:0>2} / {old_wins:0>2}")
+
+        if (new_wins + old_wins == 0 or 
+            float(new_wins) / (new_wins + old_wins) < self.cfg.SOLVER.UPDATE_THRESH):
+            logging.info('REJECTING NEW MODEL')
+            self.model.load_state_dict(best_model.state_dict())
+        else:
+            logging.info('ACCEPTING NEW MODEL')
+            self.checkpointer.update_best_cp()
+        
+        # terminate selfplay process and reset atributes
+        self._reset_match_workers()
+        
+        del best_model
+        torch.cuda.empty_cache()
+        self.timers["compare"].stop()
+        logging.info(f"compare time: {self.timers['compare']}")
     
     def _start_selfplay(self):
         """
@@ -158,26 +221,27 @@ class Trainer:
         """
         
         # create and start logging thread
-        self.logging_thread = threading.Thread(
+        self.self_logging_thread = threading.Thread(
             target=listener_process, 
-            args=(self.logging_queue,)
+            args=(self.self_logging_queue,)
         )
-        self.logging_thread.start()
+        self.self_logging_thread.start()
         
         # create and start selfplay workers 
-        self.workers = [Selfplay(
+        self.self_workers = [Selfplay(
             pid=i+1, 
             model=self.model, 
             game=self.game, 
             exp_queue=self.exp_queue, 
-            logging_queue=self.logging_queue,
+            logging_queue=self.self_logging_queue,
             global_games_count=self.game_count,
-            barrier=self.barrier,
-            total_num_games=self.games_per_iter, 
+            barrier=self.self_barrier,
             cfg=self.cfg,
-        ) for i in range(self.num_workers)]
+            p1_wins=self.self1_wins_count,
+            p2_wins=self.self2_wins_count,
+        ) for i in range(self.num_self_workers)]
 
-        for worker in self.workers:
+        for worker in self.self_workers:
             worker.start()
 
     def _collect_samples(self, idx):
@@ -220,24 +284,75 @@ class Trainer:
         del policies
         del values
     
-    def _reset_workers(self):
+    def _reset_selfplay(self):
         """
         terminate workers and reset attributes
         """
         
         # finish workers
-        for worker in self.workers:
+        for worker in self.self_workers:
             worker.join()
         
         # finish logging thread
-        self.logging_queue.put_nowait(None)
-        self.logging_thread.join()
+        self.self_logging_queue.put_nowait(None)
+        self.self_logging_thread.join()
         
         # reset attributes
         self.game_count = mp.Value("i", 0)
+        self.self1_wins_count = mp.Value("i", 0)
+        self.self2_wins_count = mp.Value("i", 0)
         self.exp_queue = mp.Queue()
-        self.barrier = mp.Barrier(self.num_workers + 1)
-        self.logging_queue = mp.Queue()
+        
+        self.self_barrier = mp.Barrier(self.num_self_workers + 1)
+        self.self_logging_queue = mp.Queue()
+    
+    def _start_matches(self, old_model):
+        """
+        create and start logging thread and match workers
+        """
+        
+        # create and start logging thread
+        self.match_logging_thread = threading.Thread(
+            target=listener_process, 
+            args=(self.match_log_queue,)
+        )
+        self.match_logging_thread.start()
+        # print("########## num match workers", self.num_match_workers)
+        # create and start selfplay workers 
+        self.match_workers = [Match(
+            pid=i+1, 
+            model1=self.model, 
+            p1_wins=self.new_wins_count,
+            model2=old_model,
+            p2_wins=self.old_wins_count,
+            game=self.game, 
+            logging_queue=self.match_log_queue,
+            global_match_count=self.matches_count,
+            barrier=self.match_barrier,
+            cfg=self.cfg,
+        ) for i in range(self.num_match_workers)]
+
+        for worker in self.match_workers:
+            worker.start()
+    
+    def _reset_match_workers(self):
+        """
+        reset match_workers and variables
+        """
+        for worker in self.match_workers:
+            worker.join()
+        
+        # finish logging thread
+        self.match_log_queue.put_nowait(None)
+        self.match_logging_thread.join()
+        
+        # reset attributes
+        self.matches_count = mp.Value("i", 0)
+        self.old_wins_count = mp.Value("i", 0)
+        self.new_wins_count = mp.Value("i", 0)
+        
+        self.match_barrier = mp.Barrier(self.num_match_workers + 1)
+        self.match_log_queue = mp.Queue()
     
     def _build_dataset(self):
         history_length = self.cfg.DATA.HISTORY_LENGTH
@@ -255,6 +370,7 @@ class Trainer:
             iter_list,
             self.cfg
         )
+    
     @classmethod
     def build_game(cls, cfg):
         return build_game(cfg)
@@ -267,3 +383,37 @@ class Trainer:
         model.cuda().share_memory()
         
         return model
+    
+    # def compare_models(self):
+    #     """
+    #     """
+    #     self.timers["compare"].start()
+    #     best_model = self.build_model(self.game, self.cfg)
+    #     self.checkpointer.load_best_cp(best_model)
+    #     self.model.eval()
+    #     best_model.eval()
+    #     best_player = MCTS(self.game, self.cfg, best_model)
+        
+    #     current_player = MCTS(self.game, self.cfg, self.model)
+        
+    #     arena = Arena(
+    #         lambda x: np.argmax(current_player.get_policy_infer(x, temp=0)),
+    #         lambda x: np.argmax(best_player.get_policy_infer(x, temp=0)),
+    #         self.game,
+    #     )
+    #     curr_wins, best_wins, draws = arena.playGames(
+    #         self.cfg.MATCH.NUM_MATCHES)
+    #     self.timers["compare"].stop()
+    #     logging.info(
+    #         f'NEW/PREV WINS : {curr_wins:0>2} / {best_wins:0>2} ;' + 
+    #         f' DRAWS : {draws:0>2}')
+    #     if (curr_wins + best_wins == 0 or 
+    #         float(curr_wins) / (curr_wins + best_wins) < self.cfg.SOLVER.UPDATE_THRESH):
+    #         logging.info('REJECTING NEW MODEL')
+    #         self.model.load_state_dict(best_model.state_dict())
+    #     else:
+    #         logging.info('ACCEPTING NEW MODEL')
+    #         self.checkpointer.update_best_cp()
+        
+    #     del best_model
+    #     torch.cuda.empty_cache()

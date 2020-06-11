@@ -10,6 +10,11 @@ SELF_PLAY:
   NUM_WORKER: 8
   VERBOSE_FREQ: 32
 
+MATCH:
+  NUM_MATCHES: 64
+  NUM_WORKERS: 8
+  VERBOSE_FREQ: 8
+
 GAME:
   BOARD_SIZE: 8
 
@@ -22,7 +27,6 @@ SOLVER:
   NUM_EPOCHS: 10
   BATCH_SIZE: 64
   UPDATE_THRESH: 0.6
-MATCH:
-  NUM_MATCHES: 64
+
 DIRS:
-  OUTPUTS: /home/hieu123/alpha_zero_mp/runs/
+  OUTPUTS: /home/ad/Documents/runs/

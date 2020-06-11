@@ -8,28 +8,29 @@ class Checkpointer:
     manage checkpoint
     
     working scenarios:
-    i. training from scratch: (also include training from public pretraned wieght)
-        pretrained weight (locally) and checkpoint are None
+    i. training from scratch: train_data is empty
         
-    ii. finetune: load pretrained weights (local) to model, 
-        other checkpointables object are initialized from cfg
-        pretrained_w is not None, and there is no existing checkpoint logs
+    ii. start at selfplaying: last cp's iter == last train_data's iter
         
-    iii. resume: resume training procedure from existing checkpoint log,
-        pretrained weight are
+    iii. start at training: last cp's iter < last train_data's iter
 
     """
     def __init__(self, cfg, logger, model, **checkpointables):
+        
         """
+        NOTE: currently only support save last checkpoint only
         args: 
             
         """
+        # assert cfg.SOLVER.SAVE_LAST_ONLY,\
+            # "not support save serveral cp in an iteration"
         self.model = model
         self.checkpointables = checkpointables
         self.logger = logger
         self.save_freq = cfg.SOLVER.SAVE_CHECKPOINT_FREQ
         self.num_epochs = cfg.SOLVER.NUM_EPOCHS
-        
+        if cfg.SOLVER.SAVE_LAST_ONLY:
+            self.save_freq = self.num_epochs + 1
         # make checkpoint dirs
         cp_folder = os.path.join(cfg.DIRS.EXPERIMENT, "checkpoints")
         if not os.path.exists(cp_folder): 
@@ -48,9 +49,12 @@ class Checkpointer:
         self.logs = self._load_log() # if there is no existing logs, get dict with None values
         
         # store addtional info for each checkpoints
-        self.additional_info = {"epoch": 1, "iter": 1}
+        self.additional_info = {"epoch": 0, "iter": 0}
         
-    def save_checkpoint(self, cp_name, **additional_info):
+        # latest model cp to update best model later
+        self.latest_model = None
+    
+    def save_checkpoint(self, cp_name, is_best=False, **additional_info):
         """
         ensure that keywords of addtional info are different from checkpointables
         
@@ -61,11 +65,14 @@ class Checkpointer:
 
         # update other info
         self.additional_info.update(additional_info)
+        lastest_info = {"cp_name": cp_name}
+        lastest_info.update(additional_info)
+        self.latest_model = lastest_info
         
         # save checkpoint
         current_epoch = additional_info["epoch"]
         is_last = current_epoch == self.num_epochs
-        if ((current_epoch-1) % self.save_freq) == 0 or is_last:
+        if ((current_epoch) % self.save_freq) == 0 or is_last:
             
             cp = {"state_dict": self.model.state_dict()}
             for key, ob in self.checkpointables.items():
@@ -76,6 +83,9 @@ class Checkpointer:
             torch.save(cp, path)        
             self._update_log(cp_name=cp_name)
             self.logger.info(f"saved new checkpoint to {path}")
+            
+            # if is_last and additional_info["iter"] == 1:
+            #     self.update_best_cp()
     
     def save_data(self, file_name, data, **additional_info):
         """
@@ -98,37 +108,93 @@ class Checkpointer:
         
     def load_resume(self, pretrained_w=None):
         """
+        working scenarios:
+        i. training from scratch: train_data is empty
+            
+        ii. last cp's iter == last train_data's iter
+            
+        iii. start at training: last cp's iter < last train_data's iter
+    
         load pretrained weights (if any) or resume training
+        
         args: 
             -- pretrained_w (str): path to pretrained weights
-        return current epoch, current_best_metric
-         
+        return current epoch, current iter
+        epoch 0 means start selfplaying
+        epoch >0: skip selfplaying, start train model
+        iter: current iter
+        
         NOTE: epoch numbering in logging and checkpoint start from 1,
             assume larger metric is better
         """
-        # print("##########", pretrained_w)
+        assert pretrained_w is None, \
+            "currently do not support pretrained_weights"
+        logs = self.logs
+        last_cp_iter = 0
+        if len(logs["checkpoints"]) > 0:
+            last_cp_iter = logs["checkpoints"][-1]["iter"]
+        
+        last_data_iter = 0
+        if len(logs["train_data"]) > 0:
+            last_data_iter = logs["train_data"][-1]["iter"]
+        
+        assert (last_cp_iter <= last_data_iter and 
+            last_cp_iter >= last_data_iter-1), \
+            "something wrong in cp logs"
+        
         # scenario i.
-        last_checkpoint = self.cp_logs["last_checkpoint"]
-        if  last_checkpoint is not None:
-            cp_path = os.path.join(self.cp_folder,last_checkpoint)
-            state_dict = self._load_cp_file(cp_path)
-            state_dict["epoch"] += 1
+        if  last_data_iter == 0:
+            self.logger.info("##### training from scratch #####")
+            return 0, 1
+        
+        # scenario ii. last_data_iter = last_data_iter > 0
+        elif last_data_iter == last_cp_iter:
+            last_checkpoint = logs["checkpoints"][-1]["cp_name"]
+            cp_path = os.path.join(self.cp_folder, last_checkpoint)
+            state_dict = torch.load(cp_path)
             self._load_state(state_dict)
             self.logger.info(f"resume from checkpoint {last_checkpoint}")
-            return state_dict["epoch"]
+
+            if state_dict["epoch"] == self.num_epochs:
+                self.logger.info(f"starting from iter {last_data_iter + 1}")
+                return 0, last_data_iter + 1
+            else:
+                self.logger.info(f"starting from iter {last_data_iter}")
+                return state_dict["epoch"] + 1, last_data_iter
         
-        # scenario ii.
-        elif pretrained_w is not None:
-            weights = self._load_cp_file(pretrained_w)["state_dict"]
-            self.model.load_state_dict(weights)
-            self.cp_logs["pretrained"] = pretrained_w
-            self.logger.info(f"finetune from pretrained weight: {pretrained_w}")
-            return 1
-        
-        # scenario iii.
-        else:
-            self.logger.info("##### training from scratch #####")
-            return 1
+        # last_cp_iter < last_data_iter 
+        # finish selfplaying but havent train 
+        else: 
+            if last_cp_iter == 0:
+                self.logger.info(
+                    "##### training from scratch, got train_data iter0 #####")
+                return 1, 1
+            else:
+                last_checkpoint = logs["checkpoints"][-1]["cp_name"]
+                cp_path = os.path.join(self.cp_folder, last_checkpoint)
+                state_dict = torch.load(cp_path)
+                # assert state_dict["epoch"] == self.num_epochs
+                self._load_state(state_dict)
+                self.logger.info(f"resume from checkpoint {last_checkpoint}")
+                
+                self.logger.info(f"starting from iter {last_data_iter}")
+                return 1, last_data_iter
+
+    def load_best_cp(self, model):
+        """
+        load checkpoint of previous iter for comparision
+        """
+        # assert self.additional_info["iter"] > 0
+        if self.logs["best_cp"] is not None:
+            cp_name = self.logs["best_cp"]["cp_name"]
+            path = os.path.join(self.cp_folder, cp_name)
+            cp = torch.load(path, map_location="cuda")
+            model.load_state_dict(cp["state_dict"])
+            return
+        print("no best cp")
+    
+    def update_best_cp(self):
+        self.logs["best_cp"] = self.latest_model
 
     def _update_log(self, cp_name=None, data_name=None):
         """
@@ -138,11 +204,21 @@ class Checkpointer:
         self.logs.update(self.additional_info)
         
         if cp_name is not None:
-            self.logs["checkpoints"].append(cp_name)
-            self.logs["last_checkpoint"] = cp_name
+            cp_info = {
+                "cp_name": cp_name, 
+                "iter": self.additional_info["iter"],
+                "epoch": self.additional_info["epoch"]
+            }
+            self.logs["checkpoints"].append(cp_info)
+            self.logs["last_checkpoint"] = cp_info
             
         if data_name is not None:
-            self.logs["train_data"].append(data_name)
+            data_info = {
+                "data_name": data_name, 
+                "iter": self.additional_info["iter"],
+                "epoch": self.additional_info["epoch"]
+            }
+            self.logs["train_data"].append(data_info)
 
         # save new logs 
         with open(self.log_path, "w") as f:
@@ -165,6 +241,7 @@ class Checkpointer:
             "iter": 0,
             "train_data": [],
             "checkpoints": [],
+            "best_cp": None,
         }
     
     def _load_state(self, state_dict):

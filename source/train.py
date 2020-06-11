@@ -9,7 +9,7 @@ from utils import (
 
 def main(cfg , args):
     if args.mode == "train":
-        trainer = Trainer(cfg)
+        trainer = Trainer(cfg, resume=args.resume)
         trainer.run()
     else:
         raise ValueError("Invalid mode")
