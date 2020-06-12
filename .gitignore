@@ -4,4 +4,6 @@ test/
 *.pth
 *cache*
 *.log
+*push.sh
+run_test.sh
 pretrained_models*
