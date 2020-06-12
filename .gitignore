@@ -3,4 +3,5 @@ __pycache__
 test/
 *.pth
 *cache*
+*.log
 pretrained_models*
