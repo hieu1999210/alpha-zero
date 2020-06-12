@@ -20,9 +20,9 @@ class BaseModel(nn.Module):
         self.is_freezed = False
 
 
-class Model(BaseModel):
+class Resnet(BaseModel):
     def __init__(self, game, cfg):
-        super(Model, self).__init__()
+        super(Resnet, self).__init__()
         
         base_channel    = cfg.MODEL.BASE_CHANNELS
         H, W            = game.getBoardSize()
@@ -30,13 +30,22 @@ class Model(BaseModel):
         input_channels  = 1
         num_actions     = game.getActionSize()
         num_blocks      = cfg.MODEL.NUM_BLOCKS
+        drop_rate       = cfg.MODEL.DROP_RATE
+        
         self.backbone = nn.Sequential(
             conv3x3(input_channels, base_channel),
             nn.BatchNorm2d(base_channel),
-            *[Bottleneck(base_channel, bn_channels, base_channel)]*num_blocks
+            *[Bottleneck(
+                in_channels=base_channel, 
+                bottleneck_channels=bn_channels, 
+                out_channels=base_channel,
+                drop_rate=drop_rate,
+                block_drop=cfg.MODEL.BLOCK_DROP,
+            )]*num_blocks
         )
-        self.policy_head = PolicyHead(base_channel, H, W, num_actions)
-        self.value_head = ValueHead(base_channel, H, W)
+        self.policy_head = PolicyHead(
+            base_channel, H, W, num_actions, drop_rate)
+        self.value_head = ValueHead(base_channel, H, W, drop_rate)
         self.is_freezed = False
         
         self.value_loss = nn.MSELoss()
@@ -71,10 +80,10 @@ class Model(BaseModel):
 """
 
 
-class OthelloNNet(BaseModel):
+class OthelloNet(BaseModel):
     
     def __init__(self, game):
-        super(OthelloNNet, self).__init__()
+        super(OthelloNet, self).__init__()
         
         num_channels = 512
         self.num_channels = num_channels
@@ -134,15 +143,17 @@ class OthelloNNet(BaseModel):
             "pi_loss": p_loss,
             "v_loss": v_loss,
         }
-        
+
+
 class PolicyHead(nn.Module):
-    def __init__(self, in_channels, H,W, num_actions):
+    def __init__(self, in_channels, H, W, num_actions, drop_rate=.0):
         super(PolicyHead, self).__init__()
         self.layers = nn.Sequential(
             conv1x1(in_channels, 2),
             nn.BatchNorm2d(2),
             nn.ReLU(),
             nn.Flatten(),
+            nn.Dropout(p=drop_rate),
             nn.Linear(2*H*W, num_actions)
         )
     
@@ -151,15 +162,17 @@ class PolicyHead(nn.Module):
 
 
 class ValueHead(nn.Module):
-    def __init__(self, in_channels, H,W):
+    def __init__(self, in_channels, H, W, drop_rate=.0):
         super(ValueHead, self).__init__()
         self.layers = nn.Sequential(
             conv1x1(in_channels, 1),
             nn.BatchNorm2d(1),
             nn.ReLU(),
             nn.Flatten(),
+            nn.Dropout(p=drop_rate),
             nn.Linear(H*W, 256),
             nn.ReLU(),
+            nn.Dropout(p=drop_rate),
             nn.Linear(256,1),
         )
     
@@ -235,11 +248,3 @@ def conv1x1(in_planes, out_planes, stride=1):
     return nn.Conv2d(
         in_planes, out_planes, kernel_size=1, stride=stride, bias=False
     )
-
-
-if __name__ == "__main__":
-    model = Model(None).cuda()
-    a = torch.randn((2,1,6,6)).cuda()
-    value, policy = model(a)
-    print(model)
-    print(value.shape, policy.shape)
