@@ -127,4 +127,3 @@ def get_log(name, folder=".", file_name='logs.log', console=True):
         logger.addHandler(ch)
         
     return logger
-    

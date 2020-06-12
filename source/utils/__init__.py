@@ -5,6 +5,7 @@ from .log_utils import (
     get_log,
     AverageMeter, 
     Timer,
+    
 )
 
 from .args_parsing import (
@@ -12,5 +13,5 @@ from .args_parsing import (
     setup_config,
 )
 
-from .config import get_cfg_defaults
+from .config import get_cfg_defaults, COLOR
 from .checkpointer import Checkpointer 

@@ -180,6 +180,11 @@ class Checkpointer:
                 self.logger.info(f"starting from iter {last_data_iter}")
                 return 1, last_data_iter
 
+    def get_best_cp_name(self):
+        if self.logs["best_cp"] is not None:
+            return self.logs["best_cp"]["cp_name"]
+        return None
+    
     def load_best_cp(self, model):
         """
         load checkpoint of previous iter for comparision
@@ -192,6 +197,11 @@ class Checkpointer:
             model.load_state_dict(cp["state_dict"])
             return
         print("no best cp")
+    
+    def get_current_cp_name(self):
+        if self.latest_model is not None:
+            return self.latest_model["cp_name"]
+        return None
     
     def update_best_cp(self):
         self.logs["best_cp"] = self.latest_model
