@@ -53,6 +53,8 @@ class Selfplay(Process):
         self.win_count              = [None, p1_wins, p2_wins]
         self.verbose_freq           = cfg.SELF_PLAY.VERBOSE_FREQ
         self.worker_name            = f"self_worker_{self.process_id:0>2}"
+        self.verbose                = cfg.SELF_PLAY.VERBOSE
+        
         # init for batch of players
         self.players                = [default_player]*batch_size
         self.steps_count            = [1]*batch_size
@@ -66,7 +68,8 @@ class Selfplay(Process):
 
     def run(self):
         setup_worker_logger(self.logging_queue)
-        logging.info(f"{self.worker_name}: started")
+        if self.verbose:
+            logging.info(f"{self.worker_name}: started")
         
         while self.global_games_count.value < self.total_num_games:
             self._gen_canonicals()
@@ -74,9 +77,10 @@ class Selfplay(Process):
                 self._run_simulation()
             self._transition()
         
-        logging.info(
-            f"{self.worker_name}: finished, "
-            f"runned {self.worker_games_count} games")
+        if self.verbose:
+            logging.info(
+                f"{self.worker_name}: finished, "
+                f"runned {self.worker_games_count} games")
         # torch.cuda.empty_cache()
         self.barrier.wait()
     
@@ -146,14 +150,15 @@ class Selfplay(Process):
                         logging.info(
                             f"{self.worker_name}: "
                             f"{game_count:0>3}-th game: "
-                            f"tree_size {len(self.MCTSs[i])} "
-                            f"num_steps {self.steps_count[i]} "
+                            f"tree_size: {len(self.MCTSs[i])}; "
+                            f"num_steps: {self.steps_count[i]}; "
                             f"winner: {winner}"
                         )
                         logging.info(
                             f"{self.worker_name}: "
-                            f"player1 wins: {self.win_count[1].value:0>3}  "
-                            f"player2 wins: {self.win_count[-1].value:0>3}")
+                            "player1 vs player2: "
+                            f"{self.win_count[1].value:0>3} - "
+                            f"{self.win_count[-1].value:0>3}")
                 win_count = self.win_count[winner]
                 with win_count.get_lock():
                     win_count.value +=1

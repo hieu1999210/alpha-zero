@@ -64,6 +64,8 @@ class Match(Process):
         self.first_player           = first_player
         self.verbose_freq           = cfg.SELF_PLAY.VERBOSE_FREQ
         self.worker_name            = f"match_worker_{self.process_id:0>2}"
+        self.verbose                = cfg.MATCH.VERBOSE
+        
         # init for batch of players
         self.player                 = first_player
         self.steps_count            = 1
@@ -76,17 +78,18 @@ class Match(Process):
 
     def run(self):
         setup_worker_logger(self.logging_queue)
-        logging.info(f"{self.worker_name}: started")
+        if self.verbose:
+            logging.info(f"{self.worker_name}: started")
         
         while self.global_match_count.value < self.total_num_matches:
             self._gen_canonicals()
             for _ in range(self.n_simuls):
                 self._run_simulation()
             self._transition()
-        
-        logging.info(
-            f"{self.worker_name}: finished, "
-            f"runned {self.worker_match_count} matches")
+        if self.verbose:
+            logging.info(
+                f"{self.worker_name}: finished, "
+                f"runned {self.worker_match_count} matches")
         self.barrier.wait()
     
     def _gen_canonicals(self):
@@ -147,15 +150,15 @@ class Match(Process):
                     logging.info(
                         f"{self.worker_name}: "
                         f"{match_count:0>3}-th game: "
-                        f"tree1_size: {len(self.MCTSs[1])} "
-                        f"tree2_size: {len(self.MCTSs[-1])} "
-                        f"num_steps {self.steps_count} "
+                        f"tree1_size: {len(self.MCTSs[1])}; "
+                        f"tree2_size: {len(self.MCTSs[-1])};"
+                        f"num_steps: {self.steps_count}; "
                         f"winner: {winner}"
                     )
                     logging.info(
                         f"{self.worker_name}: "
-                        f"player1 wins: {self.win_count[1].value:0>3}  "
-                        f"player2 wins: {self.win_count[-1].value:0>3}")
+                        f"player1 vs player2: {self.win_count[1].value:0>3} - "
+                        f"{self.win_count[-1].value:0>3}")
             with self.win_count[winner].get_lock():
                 self.win_count[winner].value += 1
             self.worker_match_count += 1

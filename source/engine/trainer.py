@@ -161,8 +161,10 @@ class Trainer:
         self.self_barrier.wait()
         
         self.timers["selfplay"].stop()
-        logging.info(f"player1 wins: {self.self1_wins_count.value:0>3}  "
-                     f"player2 wins: {self.self2_wins_count.value:0>3}")
+        logging.info(
+            "player1 vs player2: "
+            f"{self.self1_wins_count.value:0>3} - "
+            f"{self.self2_wins_count.value:0>3}")
         logging.info(f"selfplay time: {self.timers['selfplay']}")
         
         # collect sample
@@ -188,7 +190,9 @@ class Trainer:
         self.timers["compare"].start()
         best_model = self.build_model(self.game, self.cfg)
         self.checkpointer.load_best_cp(best_model)
-        
+        best_model_name = self.checkpointer.get_best_cp_name()
+        current_model_name = self.checkpointer.get_current_cp_name()
+        logging.info(f"{best_model_name} (current_model) vs {current_model_name} (new model)")
         best_model.eval()
         self.model.eval()
         best_model.freeze_param()
@@ -202,7 +206,7 @@ class Trainer:
 
         new_wins = self.new_wins_count.value
         old_wins = self.old_wins_count.value
-        logging.info(f"NEW/PREV WINS : {new_wins:0>2} / {old_wins:0>2}")
+        logging.info(f"new vs current_best: {new_wins:0>2} - {old_wins:0>2}")
 
         if (new_wins + old_wins == 0 or 
             float(new_wins) / (new_wins + old_wins) < self.cfg.SOLVER.UPDATE_THRESH):

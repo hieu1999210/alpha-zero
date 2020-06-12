@@ -29,10 +29,10 @@ class ArenaGUI():
                      mode.
             assume player 2 is human
             
-            args:
-                --player1: funtion to return action, given a state (AI)
-                --game(Game)
-                --display: a method to update gui given new state
+        args:
+            --player1: funtion to return action, given a state (AI)
+            --game(Game)
+            --display: a method to update gui given new state
             
 
         """
