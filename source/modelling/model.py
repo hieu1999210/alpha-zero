@@ -149,12 +149,15 @@ class PolicyHead(nn.Module):
     def __init__(self, in_channels, H, W, num_actions, drop_rate=.0):
         super(PolicyHead, self).__init__()
         self.layers = nn.Sequential(
-            conv1x1(in_channels, 2),
-            nn.BatchNorm2d(2),
+            conv1x1(in_channels, 32),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Flatten(),
             nn.Dropout(p=drop_rate),
-            nn.Linear(2*H*W, num_actions)
+            nn.Linear(32*H*W, 512),
+            nn.ReLU(),
+            nn.Dropout(p=drop_rate),
+            nn.Linear(512, num_actions),
         )
     
     def forward(self, x):
@@ -165,15 +168,15 @@ class ValueHead(nn.Module):
     def __init__(self, in_channels, H, W, drop_rate=.0):
         super(ValueHead, self).__init__()
         self.layers = nn.Sequential(
-            conv1x1(in_channels, 1),
-            nn.BatchNorm2d(1),
+            conv1x1(in_channels, 32),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Flatten(),
             nn.Dropout(p=drop_rate),
-            nn.Linear(H*W, 256),
+            nn.Linear(32*H*W, 512),
             nn.ReLU(),
             nn.Dropout(p=drop_rate),
-            nn.Linear(256,1),
+            nn.Linear(512,1),
         )
     
     def forward(self, x):

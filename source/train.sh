@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=0 python train.py \
-    --config "/home/hieu123/alpha_zero_mp/configs/exp4_hust.yaml" \
+    --config "/home/hieu123/alpha_zero_mp2/configs/exp5_hust.yaml" \
     # --resume
 
 # CUDA_VISIBLE_DEVICES=0 python train.py \

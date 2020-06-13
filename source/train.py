@@ -4,6 +4,7 @@ from utils import (
     get_cfg_defaults, 
     parse_args, 
     setup_config,
+    set_deterministic
 )
 
 
@@ -20,4 +21,5 @@ if __name__ == "__main__":
     cfg = setup_config(cfg, args)
     
     set_start_method('spawn', force=True)
+    set_deterministic()
     main(cfg, args)

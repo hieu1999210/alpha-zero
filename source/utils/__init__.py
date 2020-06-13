@@ -15,3 +15,4 @@ from .args_parsing import (
 
 from .config import get_cfg_defaults, COLOR
 from .checkpointer import Checkpointer 
+from .deterministic import set_deterministic

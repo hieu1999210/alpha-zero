@@ -1,17 +1,18 @@
 MCTS:
   NUM_SIMULATION_PER_STEP: 16
 SELF_PLAY:
-  GAME_PER_ITER: 32
-  BATCH_SIZE: 4
-  NUM_WORKER: 4
+  GAME_PER_ITER: 16
+  BATCH_SIZE: 2
+  NUM_WORKER: 2
 GAME:
   BOARD_SIZE: 8
-
+DEVICE: "cuda"
 SOLVER:
-  NUM_ITERS: 10
-  SAVE_CHECKPOINT_FREQ: 10
-  NUM_EPOCHS: 10
+  NUM_ITERS: 3
+  SAVE_CHECKPOINT_FREQ: 4
+  NUM_EPOCHS: 4
 MATCH:
-  NUM_MATCHES: 64
+  NUM_MATCHES: 4
 DIRS:
+  # OUTPUTS: /mnt/DATA/learning_stuffs/uni/20192/artificial_intelligence/project/alpha-zero/runs
   OUTPUTS: /home/hieu123/alpha_zero_mp/runs/

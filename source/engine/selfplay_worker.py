@@ -7,7 +7,7 @@ import numpy as np
 from .mcts import MCTS
 from utils import setup_worker_logger
 
-class Selfplay(Process):
+class SelfplayWorker(Process):
     """
     a Self play process concurrently running a batch of selfplay Agent, 
     this is to leverage parallelism of the gpu
@@ -32,7 +32,7 @@ class Selfplay(Process):
         assert not model.training, "model is not in the eval mode"
         assert model.is_freezed, "model is not freezed"
         
-        super(Selfplay, self).__init__()
+        super(SelfplayWorker, self).__init__()
         batch_size = cfg.SELF_PLAY.BATCH_SIZE
         default_player = cfg.GAME.DEFAULT_PLAYER
         

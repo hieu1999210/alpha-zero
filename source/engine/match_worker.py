@@ -7,7 +7,7 @@ import numpy as np
 from .mcts import MCTS
 from utils import setup_worker_logger
 
-class Match(Process):
+class MatchWorker(Process):
     """
     NOTE: currently support batch_size = 1 only
     
@@ -29,15 +29,18 @@ class Match(Process):
     """
     def __init__(
         self, pid, model1, model2, game, logging_queue, global_match_count,
-        barrier, p1_wins, p2_wins, cfg,
+        barrier, p1_wins, p2_wins, cfg, cfg2=None,
     ):
         assert not model1.training, "model1 is not in the eval mode"
         assert not model2.training, "model2 is not in the eval mode"
         assert model1.is_freezed, "model1 is not freezed"
         assert model2.is_freezed, "model1 is not freezed"
 
-        super(Match, self).__init__()
+        super(MatchWorker, self).__init__()
         
+        if cfg2 is None:
+            cfg2 = cfg
+
         first_player = cfg.GAME.FIRST_PLAYER
         self.process_id             = pid
         # player1 id=1, player2 id=-1
@@ -48,9 +51,11 @@ class Match(Process):
         if swap:
             self.models_list = [None, model2, model1]
             self.win_count = [None, p2_wins, p1_wins]
+            self.MCTSs = [None, MCTS(game, cfg2), MCTS(game, cfg)]
         else:
             self.models_list = [None, model1, model2]
             self.win_count = [None, p1_wins, p2_wins]
+            self.MCTSs = [None, MCTS(game, cfg), MCTS(game, cfg2)]
             
         self.game                   = game
         self.logging_queue          = logging_queue
@@ -61,6 +66,7 @@ class Match(Process):
         self.worker_match_count     = 0
         self.temp                   = cfg.MATCH.TEMP
         self.cfg                    = cfg
+        self.cfg2                   = cfg2
         self.first_player           = first_player
         self.verbose_freq           = cfg.SELF_PLAY.VERBOSE_FREQ
         self.worker_name            = f"match_worker_{self.process_id:0>2}"
@@ -70,7 +76,7 @@ class Match(Process):
         self.player                 = first_player
         self.steps_count            = 1
         self.canonical              = None
-        self.MCTSs = [None, MCTS(game, cfg), MCTS(game, cfg)]
+        
         self.state = game.getInitBoard()
         self.inp_tensor = torch.zeros(
             size=(1, 1, *game.getBoardSize())
@@ -171,8 +177,16 @@ class Match(Process):
         NOTE:
             need not to reset canonical board and input_tensor
         """
-        
-        self.MCTSs = [None, MCTS(self.game, self.cfg), MCTS(self.game, self.cfg)]
+        if self.swap:
+            self.MCTSs = [
+                None, 
+                MCTS(self.game, self.cfg2), 
+                MCTS(self.game, self.cfg)]
+        else:
+            self.MCTSs = [
+                None, 
+                MCTS(self.game, self.cfg), 
+                MCTS(self.game, self.cfg2)]
         self.state = self.game.getInitBoard()
         self.player = self.first_player
         self.steps_count = 1
