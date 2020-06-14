@@ -6,7 +6,7 @@ from .dataset import EXP, Batch
 
 def get_dataset(data_folder, files, iter_list, cfg): 
     
-    dataset = EXP(data_folder, files, iter_list)
+    dataset = EXP(data_folder, files, iter_list, cfg.DATA.AUGMENTATION)
 
     dataloader = DataLoader(
         dataset, 

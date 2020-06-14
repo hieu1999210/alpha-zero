@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 
+import numpy as np
 import torch
 import torch.multiprocessing as mp 
 
@@ -103,19 +104,19 @@ class Selfplay:
         x,y = self.game.getBoardSize()
         num_moves = self.game.getActionSize()
         
-        boards = torch.zeros((num_exp, 1, x, y))
-        policies = torch.zeros((num_exp, num_moves))
-        values = torch.zeros((num_exp,1))
+        boards = np.zeros((num_exp, x, y))
+        policies = np.zeros((num_exp, num_moves))
+        values = np.zeros((num_exp,1))
         for i in range(num_exp):
             board, policy, value = self.exp_queue.get()
-            boards[i,0] = torch.from_numpy(board)
-            policies[i] = torch.from_numpy(policy)
+            boards[i] = board
+            policies[i] = policy
             values[i,0] = value
         
         exp_file = os.path.join(
-            self.exp_folder, f"iter_{idx:0>3}_{num_exp:0>6}_samples.pth")
+            self.exp_folder, f"iter_{idx:0>3}_{num_exp:0>6}_samples.npy")
         data = {
-            "states": boards.type(torch.int8),
+            "states": boards.astype(np.int8),
             "policies": policies,
             "values": values
         }

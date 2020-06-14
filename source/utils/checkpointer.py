@@ -1,7 +1,7 @@
 import torch
 import os
 import json
-
+import numpy as np
 
 class Checkpointer:
     """
@@ -102,7 +102,7 @@ class Checkpointer:
         self.additional_info["epoch"] = 0
         
         path = os.path.join(self.data_folder, file_name)
-        torch.save(data, path)
+        np.save(path, data)
         self._update_log(data_name=file_name)
         self.logger.info(f"saved new data to {path}")
         
