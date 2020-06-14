@@ -19,7 +19,7 @@ class ArenaGUI():
         --action: the last action that led to the current board
     """
 
-    def __init__(self, player1, game, display):
+    def __init__(self, AI_player, human_player_ids, game, display):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -36,7 +36,8 @@ class ArenaGUI():
             
 
         """
-        self.player1 = player1
+        self.AI_player = AI_player
+        self.human_players = human_player_ids
         self.game = game
         self.display = display
         self.board_size =  game.getBoardSize()
@@ -72,20 +73,21 @@ class ArenaGUI():
         valid_moves = self.valid_moves
         board_size = self.board_size
         
-        # first case for human player
-        if (valid_moves[-1] == 0 and player_id == -1 and
-            action is not None and valid_moves[action] == 0):
-            print("invalid move")
-            return
-            
-        # second case for human player 
-        if player_id == -1 and valid_moves[-1] == 1:
-            assert action is None
-            action = len(valid_moves) - 1
+        # human player
+        if player_id in self.human_players:
+            # second case for human player 
+            if valid_moves[-1] == 1:
+                assert action is None
+                action = len(valid_moves) - 1
+                
+            # first case for human player
+            elif action is not None and valid_moves[action] == 0:
+                print("invalid move")
+                return
         
         # AI player
-        if player_id == 1:
-            action = self.player1(self.game.getCanonicalForm(board, player_id))
+        else:
+            action = self.AI_player(self.game.getCanonicalForm(board, player_id))
 
         if valid_moves[action] == 0:
             log.error(f'Action {action} is not valid!')
@@ -95,7 +97,7 @@ class ArenaGUI():
         # get new state
         board, player_id = self.game.getNextState(board, player_id, action)
         valid_moves = self.game.getValidMoves(board, player_id)
-        end_game = self.game.getGameEnded(board, player_id)
+        end_game = self.game.getGameEnded(board, player_id)*player_id
         
         # convert action for caching
         if action == len(valid_moves) - 1:
@@ -125,11 +127,12 @@ class ArenaGUI():
         if self.end_game == 0 :
             
             # next turn is AI's
-            if self.player_id == 1:
+            if self.player_id not in self.human_players:
                 self.update()
             
             # next turn is human but no valid move
-            if self.player_id == -1 and self.valid_moves[-1] == 1:
+            elif self.valid_moves[-1] == 1:
+                print("no valid move for human")
                 self.update()
             
     def get_scores(self):

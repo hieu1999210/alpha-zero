@@ -12,9 +12,6 @@ from utils import listener_process
 class Arena:
     
     def __init__(self, game, cfg, cfg2=None):
-        
-        if cfg2 is None:
-            cfg2 = cfg
             
         self.game               = game 
         self.cfg                = cfg
@@ -65,6 +62,7 @@ class Arena:
             global_match_count=self.matches_count,
             barrier=self.barrier,
             cfg=self.cfg,
+            cfg2=self.cfg2,
         ) for i in range(self.num_workers)]
 
         for worker in self.workers:

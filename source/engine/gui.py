@@ -20,15 +20,6 @@ class GUI:
         --histories: list of state of the game
         -- 
     """
-    color = {
-        "valid": "#008000", # color for hint tile
-        -1: "#fff", # color for white tile
-        1: "#000", # color for black tile
-        0: "orange", # background color
-        "text": "white",
-        "undo": "#000088",
-        "arrow": "white",
-    }
     
     def __init__(self, root, screen, logger, color, cfg):
         self.screen         = screen
@@ -37,6 +28,8 @@ class GUI:
         self.logger         = logger
         self.cfg            = cfg
         self.color          = color
+        self.human_players  = cfg.DEMO.HUMAN_PLAYERS
+        
         screen.bind("<Button-1>", self.handle_click)
         screen.bind("<Key>", self.handle_key)
         screen.focus_set()
@@ -84,8 +77,9 @@ class GUI:
             self.arena.action,
         )
         
-        # AI play the first move
-        self.arena.update()
+        # AI is the first player
+        if self.cfg.GAME.FIRST_PLAYER not in self.human_players:
+            self.arena.update()
 
     def handle_click(self, event):
         """
@@ -103,12 +97,13 @@ class GUI:
             return
     
         # quit
-        quit_region = self._button_region["quit"]
-        if self._check_region(x_mouse, y_mouse, quit_region):
-            print("quit")
-            self.root.destroy()
-            return
+        # quit_region = self._button_region["quit"]
+        # if self._check_region(x_mouse, y_mouse, quit_region):
+        #     print("quit")
+        #     self.root.destroy()
+        #     return
         
+        # move
         cell_size = self.cfg.GUI.CELL_SIZE
         base_cell = self.cfg.GUI.BASE_CELL
         x = (x_mouse - base_cell) // cell_size
@@ -182,7 +177,7 @@ class GUI:
         if end_game:
             self._display_endgame(end_game)
             
-        elif player == -1:
+        elif player in self.human_players:
             # display valid move suggestions for human player
             self._display_valid_moves(valid_moves)
         self.turn_count += 1
@@ -190,31 +185,42 @@ class GUI:
         state = (new_board, valid_moves, end_game, player, action)
         self.current_state = state
         self.histories.append(state)
-        self.logger.info(
-            f"turn: {self.turn_count}"
-            f"\n{state[0].transpose()}"
-            f"\nend_game: {state[2]}"
-            f"\nplayer: {state[3]}"
-            f"\naction: {state[4]}")
-    
+        if self.cfg.DEMO.VERBOSE:
+            self.logger.info(
+                f"turn: {self.turn_count}"
+                f"\n{state[0].transpose()}"
+                f"\nend_game: {state[2]}"
+                f"\nplayer: {state[3]}"
+                f"\naction: {state[4]}")
+        
     def undo(self):
         """
         if current turn is human, reverse to previous human turn
-        NOTE: if there is no human move in histories (i.e. len(histories) == 2)
+
         """
+        self.screen.delete("text")
         
-        if self.current_state[3] == 1:
+        # current is AI turn
+        if self.current_state[3] not in self.human_players:
             print("cannot undo AI turn")
             return
-        if len(self.histories) <= 2:
+        
+        # no turn to undo
+        if len(self.histories) == 1:
             print("no turn to undo")
             return
-        assert self.histories[-3][3] == -1, "something wrong"
+        if len(self.histories) == 2 and self.cfg.GAME.FIRST_PLAYER not in self.human_players:
+            print("no turn to undo")
+            return
+
         
-        prev_state = self.histories[-3]
+        # reverse history to a human turn
+        prev_state = [None]*5
         self.histories.pop()
-        self.histories.pop()
-        self.histories.pop()
+        while prev_state[3] not in self.human_players:
+            prev_state = self.histories.pop()
+        # print("hist leng##########", len(self.histories))
+        # print("prev ###########", prev_state)
         # reverse arena state
         self.arena.board = prev_state[0]
         self.arena.valid_moves = prev_state[1]
@@ -224,17 +230,16 @@ class GUI:
         # reverse gui
         self.update_state(*prev_state, undo=True)
         
-
     def _display_endgame(self, game_result):
-        self.screen.delete("end game")
-        winner = "AI" if game_result == 1 else "human"
+        self.screen.delete("text")
+        winner = "BLACK" if game_result == 1 else "WHITE"
         self.screen.create_text(
             self.cfg.GUI.WIDTH//2,
             self.cfg.GUI.HEIGHT - self.cfg.GUI.BORDER - self.cfg.GUI.MESS_SIZE//2,
             anchor="c",
-            tags="end game",
+            tags="text",
             font=("Consolas",self.cfg.GUI.TEXT_SIZE), 
-            text=f"The winner is {winner}!")
+            text=f"{winner} wins.")
     
     def _display_valid_moves(self, valid_moves):
         """
@@ -293,7 +298,7 @@ class GUI:
         y0 = x0
         # print("x0", x0)
         screen.delete("highlight")
-        
+        screen.delete("text")
         # sentinel action
         if action is not None:
             _x, _y = action
@@ -440,26 +445,26 @@ class GUI:
         screen.create_polygon(38,43,41,50,45,44,fill="white",outline="white")
 
         # quit buttom
-        ## background
-        quit_region = (
-            self.cfg.GUI.WIDTH - border - button_size, border, 
-            self.cfg.GUI.WIDTH - border, border + button_size
-        )
-        screen.create_rectangle(*quit_region, fill="#880000", outline="#880000")
-        ##x
-        screen.create_line(
-            quit_region[0] + border, quit_region[1] + border,
-            quit_region[2] - border, quit_region[3] - border,
-            fill="white",width="3"
-        )
-        screen.create_line(
-            quit_region[0] + border, quit_region[3] - border,
-            quit_region[2] - border, quit_region[1] + border,
-            fill="white",width="3"
-        )
+        # ## background
+        # quit_region = (
+        #     self.cfg.GUI.WIDTH - border - button_size, border, 
+        #     self.cfg.GUI.WIDTH - border, border + button_size
+        # )
+        # screen.create_rectangle(*quit_region, fill="#880000", outline="#880000")
+        # ##x
+        # screen.create_line(
+        #     quit_region[0] + border, quit_region[1] + border,
+        #     quit_region[2] - border, quit_region[3] - border,
+        #     fill="white",width="3"
+        # )
+        # screen.create_line(
+        #     quit_region[0] + border, quit_region[3] - border,
+        #     quit_region[2] - border, quit_region[1] + border,
+        #     fill="white",width="3"
+        # )
         self._button_region = {
             "undo": undo_region,
-            "quit": quit_region,
+            # "quit": quit_region,
         }
         
     def _display_background(self):
