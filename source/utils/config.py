@@ -36,7 +36,6 @@ _C.GAME.BOARD_SIZE = 8
 _C.DIRS = CN()
 _C.DIRS.OUTPUTS = "/mnt/DATA/learning_stuffs/uni/20192/artificial intelligence/project/alpha-zero/runs/"
 _C.DIRS.EXPERIMENT = '.'
-_C.DIRS.DEMO_CHECKPOINT = ""
 
 _C.MODEL = CN()
 _C.MODEL.NAME = "OthelloNet"
@@ -63,9 +62,12 @@ _C.EXPERIMENT = ""
 _C.DATA = CN()
 _C.DATA.NUM_WORKERS = 8
 _C.DATA.HISTORY_LENGTH = 4
+_C.DATA.AUGMENTATION = False
 
 _C.DEMO = CN()
-_C.DEMO.HUMAN_PLAYER_ID = -1 # 1: first player, -1: second player
+_C.DEMO.HUMAN_PLAYERS = [-1] # 1: first player, -1: second player
+_C.DEMO.CHECKPOINT = ""
+_C.DEMO.VERBOSE = True
 
 _C.GUI = CN()
 _C.GUI.CELL_SIZE = 100
