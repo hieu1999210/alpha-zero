@@ -68,7 +68,7 @@ class MatchWorker(Process):
         self.cfg                    = cfg
         self.cfg2                   = cfg2
         self.first_player           = first_player
-        self.verbose_freq           = cfg.SELF_PLAY.VERBOSE_FREQ
+        self.verbose_freq           = cfg.MATCH.VERBOSE_FREQ
         self.worker_name            = f"match_worker_{self.process_id:0>2}"
         self.verbose                = cfg.MATCH.VERBOSE
         

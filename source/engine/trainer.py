@@ -143,7 +143,7 @@ class Trainer:
         self.checkpointer.load_best_cp(best_model)
         best_model_name = self.checkpointer.get_best_cp_name()
         current_model_name = self.checkpointer.get_current_cp_name()
-        logging.info(f"{best_model_name} vs {current_model_name}")
+        logging.info(f"{current_model_name} vs {best_model_name}")
         best_model.eval()
         self.model.eval()
         best_model.freeze_param()
