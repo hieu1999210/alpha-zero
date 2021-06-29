@@ -30,12 +30,12 @@ def run():
     model1.cuda().share_memory()
     
     # model2
-    cfg_path2 = "/home/hieu123/alpha_zero_mp2/configs/exp2_local.yaml"
+    cfg_path2 = "/home/hieu123/alpha_zero_mp2/configs/exp5_hust.yaml"
     cfg2 = get_cfg_defaults()
     cfg2.merge_from_file(cfg_path2)
     # cfg2 = cfg
-    # cp_path2 = os.path.join(cp_folder, "exp4_hust_iter_183_epoch_010_p_loss_1.2921_v_loss_0.5793.pth")
-    cp_path2 = os.path.join(cp_folder, "8x8_100checkpoints_best.pth.tar")
+    cp_path2 = os.path.join(cp_folder, "exp5_hust_iter_086_epoch_010_p_loss_1.6980_v_loss_0.3346.pth")
+    # cp_path2 = os.path.join(cp_folder, "8x8_100checkpoints_best.pth.tar")
     model2 = get_model(game, cfg2)
     cp2 = torch.load(cp_path2, map_location="cpu")
     model2.load_state_dict(cp2["state_dict"])

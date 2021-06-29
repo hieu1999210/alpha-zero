@@ -7,5 +7,5 @@ DEVICE: "cpu"
 GAME:
   BOARD_SIZE: 8
 DEMO:
-  CHECKPOINT: "./pretrained_models/exp2_local_iter_037_epoch_010_p_loss_0.5376_v_loss_0.1458.pth"
+  CHECKPOINT: "./pretrained_models/exp2_local_iter_195_epoch_010_p_loss_0.4580_v_loss_0.1726.pth"
   HUMAN_PLAYERS: [1]

@@ -347,8 +347,8 @@ class GUI:
                             tags="tile animated", 
                             fill=color[current_tile], 
                             outline=color[current_tile])
-                        # if i%30 == 0:
-                        sleep(self.cfg.GUI.ANIMATION_DELAY)
+                        if i%3 == 0:
+                            sleep(self.cfg.GUI.ANIMATION_DELAY)
                         screen.update()
                         screen.delete("animated")
                     
@@ -359,8 +359,8 @@ class GUI:
                             tags="tile animated",
                             fill=color[new_tile], 
                             outline=color[new_tile])
-                        # if i%30 == 0:
-                        sleep(self.cfg.GUI.ANIMATION_DELAY)
+                        if i%3 == 0:
+                            sleep(self.cfg.GUI.ANIMATION_DELAY)
                         screen.update()
                         screen.delete("animated")
                     
