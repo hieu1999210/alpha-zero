@@ -101,15 +101,13 @@ class OthelloNet(BaseModel):
 
         self.conv1 = nn.Conv2d(1, num_channels, 3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(num_channels, num_channels, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(num_channels, num_channels, 3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(num_channels, num_channels, 3, stride=1)
         self.conv4 = nn.Conv2d(num_channels, num_channels, 3, stride=1)
-        self.conv5 = nn.Conv2d(num_channels, num_channels, 3, stride=1)
 
         self.bn1 = nn.BatchNorm2d(num_channels)
         self.bn2 = nn.BatchNorm2d(num_channels)
         self.bn3 = nn.BatchNorm2d(num_channels)
         self.bn4 = nn.BatchNorm2d(num_channels)
-        self.bn5 = nn.BatchNorm2d(num_channels)
 
         self.fc1 = nn.Linear(
             num_channels * (self.board_x - 4) * (self.board_y - 4), 1024
@@ -135,7 +133,6 @@ class OthelloNet(BaseModel):
         s = F.relu(self.bn3(self.conv3(s)))
         # batch_size x num_channels x (board_x-4) x (board_y-4)
         s = F.relu(self.bn4(self.conv4(s)))
-        s = F.relu(self.bn5(self.conv5(s)))
         s = s.view(-1, self.num_channels * (self.board_x - 4) * (self.board_y - 4))
 
         # batch_size x 1024

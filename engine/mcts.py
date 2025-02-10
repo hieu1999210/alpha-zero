@@ -266,7 +266,7 @@ class MCTS:
         alpha = self.cfg.MCTS.DIRICHLET_ALPHA
         weight = self.cfg.MCTS.DIRICHLET_WEIGHT
         num_action = v_moves.sum()
-        v_moves = v_moves.astype(np.bool)
+        v_moves = v_moves.astype(bool)
         dirichlet = np.random.dirichlet(alpha * np.ones((num_action,)))
 
         # add dirichlet noise

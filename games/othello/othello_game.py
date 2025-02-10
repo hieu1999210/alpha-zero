@@ -56,7 +56,7 @@ class OthelloGame(Game):
             return np.array(valids)
         for x, y in legalMoves:
             valids[self.n * x + y] = 1
-        return np.array(valids).astype(np.bool)
+        return np.array(valids).astype(bool)
 
     def getGameEnded(self, board, player):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
