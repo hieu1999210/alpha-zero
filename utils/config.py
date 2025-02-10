@@ -1,7 +1,5 @@
 from yacs.config import CfgNode as CN
 
-
-
 _C = CN()
 
 _C.DEVICE = "cuda"
@@ -35,7 +33,7 @@ _C.GAME.BOARD_SIZE = 8
 
 _C.DIRS = CN()
 _C.DIRS.OUTPUTS = "/mnt/DATA/learning_stuffs/uni/20192/artificial intelligence/project/alpha-zero/runs/"
-_C.DIRS.EXPERIMENT = '.'
+_C.DIRS.EXPERIMENT = "."
 
 _C.MODEL = CN()
 _C.MODEL.NAME = "OthelloNet"
@@ -65,7 +63,7 @@ _C.DATA.HISTORY_LENGTH = 4
 _C.DATA.AUGMENTATION = False
 
 _C.DEMO = CN()
-_C.DEMO.HUMAN_PLAYERS = [-1] # 1: first player, -1: second player
+_C.DEMO.HUMAN_PLAYERS = [-1]  # 1: first player, -1: second player
 _C.DEMO.CHECKPOINT = ""
 _C.DEMO.VERBOSE = True
 
@@ -80,53 +78,53 @@ _C.GUI.TEXT_SIZE = 40
 _C.GUI.ANIMATION_DELAY = 0.001
 
 COLOR = {
-        "valid": "#008000", # color for hint tile
-        -1: "#fff", # color for white tile
-        1: "#000", # color for black tile
-        0: "orange", # background color
-        "text": "white",
-        "undo": "#000088",
-        "arrow": "white",
-    }
+    "valid": "#008000",  # color for hint tile
+    -1: "#fff",  # color for white tile
+    1: "#000",  # color for black tile
+    0: "orange",  # background color
+    "text": "white",
+    "undo": "#000088",
+    "arrow": "white",
+}
 
 
 # dependent configs
 _C.GUI.WIDTH = (
-    2 * (_C.GUI.BORDER + _C.GUI.BUTTON_SIZE) + 
-    _C.GAME.BOARD_SIZE * _C.GUI.CELL_SIZE)
+    2 * (_C.GUI.BORDER + _C.GUI.BUTTON_SIZE) + _C.GAME.BOARD_SIZE * _C.GUI.CELL_SIZE
+)
 
 _C.GUI.HEIGHT = (
-    _C.GAME.BOARD_SIZE * _C.GUI.CELL_SIZE +
-    2 * _C.GUI.BORDER +
-    _C.GUI.BUTTON_SIZE +
-    _C.GUI.MESS_SIZE
+    _C.GAME.BOARD_SIZE * _C.GUI.CELL_SIZE
+    + 2 * _C.GUI.BORDER
+    + _C.GUI.BUTTON_SIZE
+    + _C.GUI.MESS_SIZE
 )
 
 _C.GUI.BASE_CELL = (
-    _C.GUI.BORDER + _C.GUI.BUTTON_SIZE + 
-    (_C.GUI.CELL_SIZE - _C.GUI.TILE_SIZE) // 2
+    _C.GUI.BORDER + _C.GUI.BUTTON_SIZE + (_C.GUI.CELL_SIZE - _C.GUI.TILE_SIZE) // 2
 )
 
 _C.GUI.BASE_HINT = (
-    _C.GUI.BORDER + _C.GUI.BUTTON_SIZE + 
-    (_C.GUI.CELL_SIZE - _C.GUI.HINT_SIZE) // 2
+    _C.GUI.BORDER + _C.GUI.BUTTON_SIZE + (_C.GUI.CELL_SIZE - _C.GUI.HINT_SIZE) // 2
 )
 
 _C.GUI.BASE_PLAYER1_SCORE = (
     _C.GUI.BORDER,
-    _C.GUI.HEIGHT - _C.GUI.BORDER - _C.GUI.MESS_SIZE
+    _C.GUI.HEIGHT - _C.GUI.BORDER - _C.GUI.MESS_SIZE,
 )
 
 _C.GUI.BASE_PLAYER2_SCORE = (
-    _C.GUI.WIDTH - _C.GUI.BORDER - 2*_C.GUI.TEXT_SIZE - _C.GUI.HINT_SIZE - 15,
-    _C.GUI.HEIGHT - _C.GUI.BORDER - _C.GUI.MESS_SIZE
+    _C.GUI.WIDTH - _C.GUI.BORDER - 2 * _C.GUI.TEXT_SIZE - _C.GUI.HINT_SIZE - 15,
+    _C.GUI.HEIGHT - _C.GUI.BORDER - _C.GUI.MESS_SIZE,
 )
 
+
 def get_cfg_defaults():
-  """Get a yacs CfgNode object with default values for my_project."""
-  # Return a clone so that the defaults will not be altered
-  # This is for the "local variable" use pattern
-  return _C.clone()
+    """Get a yacs CfgNode object with default values for my_project."""
+    # Return a clone so that the defaults will not be altered
+    # This is for the "local variable" use pattern
+    return _C.clone()
+
 
 # Alternatively, provide a way to import the defaults as
 # a global singleton:

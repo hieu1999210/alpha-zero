@@ -2,7 +2,9 @@
 The following Game interface is from:
 https://github.com/suragnair/alpha-zero-general
 """
-class Game():
+
+
+class Game:
     """
     This class specifies the base Game class. To define your own game, subclass
     this class and implement the functions below. This works when the game is
@@ -12,6 +14,7 @@ class Game():
 
     See othello/OthelloGame.py for an example implementation.
     """
+
     def __init__(self):
         pass
 
@@ -47,7 +50,7 @@ class Game():
         Returns:
             nextBoard(np.array): board after applying action
             nextPlayer: player who plays in the next turn (should be -player)
-            
+
             return (None, None) current state is terminal
         """
         pass
@@ -74,7 +77,7 @@ class Game():
         Returns:
             r: 0 if game has not ended. 1 if player won, -1 if player lost,
                small non-zero value for draw.
-               
+
         """
         pass
 

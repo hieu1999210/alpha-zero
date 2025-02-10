@@ -1,27 +1,14 @@
-import time
-import os
-import csv
 import logging
 
-# import torch.nn.functional as F
 import numpy as np
-# from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
 import torch
+from tqdm import tqdm
+
+from utils import AverageMeter, Timer
+
+from .optimizer_utils import get_lr_scheduler, get_opt
 
 
-# from .monitor import Monitor
-# from .my_evaluator import Evaluator
-from .optimizer_utils import get_opt, get_lr_scheduler
-from .data_utils import get_dataset
-# from .base_classes import BaseTrainer
-from utils import (
-    AverageMeter,
-    Timer,
-)
-
-
-    
 class ModelTrainer:
     """
     trainer will run in following procedure:
@@ -34,13 +21,14 @@ class ModelTrainer:
             validate()
             end_epoch() ## detectron combine this step to after_train
     """
+
     def __init__(self, model, checkpointer, cfg):
-        
-        self.cfg            = cfg
-        self.model          = model
-        self.logger         = logging.getLogger()
-        self.checkpointer   = checkpointer
-        self.iter           = 0
+
+        self.cfg = cfg
+        self.model = model
+        self.logger = logging.getLogger()
+        self.checkpointer = checkpointer
+        self.iter = 0
         self.losses = {
             "p": AverageMeter(cache=False),
             "v": AverageMeter(cache=False),
@@ -54,32 +42,29 @@ class ModelTrainer:
         self.model.un_freeze()
         assert self.model.training
         assert not self.model.is_freezed
-        
+
     def reset(self, dataloader, iter_idx):
-        
-        
         # init optimizer
         optimizer = get_opt(
-            filter(lambda p: p.requires_grad, self.model.parameters()), 
+            filter(lambda p: p.requires_grad, self.model.parameters()),
             self.cfg,
         )
-        
+
         # init scheduler
         scheduler = get_lr_scheduler(
-            optimizer, 
-            len(dataloader), 
+            optimizer,
+            len(dataloader),
             self.cfg,
         )
-        
-        self.optimizer      = optimizer
-        self.scheduler      = scheduler
-        self.current_epoch  = 1
-        self.dataloader     = dataloader
-        self.iter           = iter_idx
+
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.current_epoch = 1
+        self.dataloader = dataloader
+        self.iter = iter_idx
 
         self.timers["epoch"].reset()
 
-    
     def train(self, start_epoch=0):
         """
         NOTE: epoch counter start at 1
@@ -92,7 +77,7 @@ class ModelTrainer:
             self.begin_epoch()
             self.train_loop()
             self.end_epoch()
-            
+
             self.timers["epoch"].stop()
             self.logger.info(
                 f"EPOCH {self.current_epoch:0>3}/{num_epoch:0>3}: "
@@ -102,18 +87,18 @@ class ModelTrainer:
             )
             self.current_epoch += 1
             self.timers["epoch"].start()
-            
+
     def begin_epoch(self):
         """
         also begin train loop
         """
-        
+
         # begin train loop
         self.dataset_iter = iter(self.dataloader)
         self.timers["data"].reset()
         for loss in self.losses.values():
             loss.reset()
-            
+
     def train_loop(self):
         tbar = tqdm(range(len(self.dataloader)))
         for i in tbar:
@@ -126,11 +111,11 @@ class ModelTrainer:
 
     def train_step(self, i):
         """
-            i: iter index
+        i: iter index
         """
         assert self.model.training
         assert not self.model.is_freezed
-        
+
         # load data
         self.timers["data"].start()
         batch = next(self.dataset_iter)
@@ -140,29 +125,22 @@ class ModelTrainer:
         with torch.set_grad_enabled(True):
             # forward
             logits, values = self.model(batch.states)
-
-            loss = self.model.loss(
-                (logits, values),
-                (batch.policies, batch.values)
-            )
-
+            loss = self.model.loss((logits, values), (batch.policies, batch.values))
             self.losses["p"].update(loss["pi_loss"].item())
             self.losses["v"].update(loss["v_loss"].item())
-            
             loss = sum(loss.values())
             self.losses["loss"].update(loss.item())
-            
+
             # backward
             loss /= self.cfg.SOLVER.GD_STEPS
             loss.backward()
-            
-            if (i+1) % self.cfg.SOLVER.GD_STEPS == 0:
+
+            if (i + 1) % self.cfg.SOLVER.GD_STEPS == 0:
                 self.scheduler.step()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-    
+
     def end_epoch(self):
-        
         cp_name = (
             f"iter_{self.iter:0>3}_"
             f"epoch_{self.current_epoch:0>3}_"
@@ -170,8 +148,7 @@ class ModelTrainer:
             f"v_loss_{self.losses['v'].avg:.4f}.pth"
         )
         self.checkpointer.save_checkpoint(
-            cp_name, 
+            cp_name,
             epoch=self.current_epoch,
-            iter=self.iter, 
-)
-
+            iter=self.iter,
+        )
