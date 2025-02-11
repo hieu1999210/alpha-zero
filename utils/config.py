@@ -32,7 +32,7 @@ _C.GAME.FIRST_PLAYER = 1
 _C.GAME.BOARD_SIZE = 8
 
 _C.DIRS = CN()
-_C.DIRS.OUTPUTS = "/mnt/DATA/learning_stuffs/uni/20192/artificial intelligence/project/alpha-zero/runs/"
+_C.DIRS.OUTPUTS = ""
 _C.DIRS.EXPERIMENT = "."
 
 _C.MODEL = CN()
@@ -75,7 +75,7 @@ _C.GUI.BUTTON_SIZE = 50
 _C.GUI.BORDER = 5
 _C.GUI.MESS_SIZE = 100
 _C.GUI.TEXT_SIZE = 40
-_C.GUI.ANIMATION_DELAY = 0.001
+_C.GUI.ANIMATION_DELAY = 0.01
 
 COLOR = {
     "valid": "#008000",  # color for hint tile

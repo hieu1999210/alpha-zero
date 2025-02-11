@@ -1,8 +1,3 @@
-"""
-pretrained: ../pretrained_models/exp2_local_iter_037_epoch_010_p_loss_0.5376_v_loss_0.1458.pth
-cfg: ./configs/exp2_local_demo.yaml
-"""
-
 from tkinter import Canvas, Tk
 
 import numpy as np
@@ -14,7 +9,7 @@ from modelling import get_model
 from utils import COLOR, get_cfg_defaults, get_log, parse_args, setup_config
 
 
-def run_gui(cfg, args):
+def run_gui(cfg):
     game = build_game(cfg)
     logger = get_log(name="demo", file_name="demo.log")
 
@@ -47,14 +42,14 @@ def run_gui(cfg, args):
 
     # run
     gui.start(arena=arena)
-    root.wm_title("Othello - developed by nhom7")
+    root.wm_title("Othello")
     root.mainloop()
 
 
 if __name__ == "__main__":
     args = parse_args()
     if not args.config:
-        args.config = "./configs/exp2_local_demo.yaml"
+        args.config = "./configs/demo.yaml"
     cfg = get_cfg_defaults()
     cfg = setup_config(cfg, args)
-    run_gui(cfg, args)
+    run_gui(cfg)

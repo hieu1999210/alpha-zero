@@ -5,11 +5,8 @@ from utils import get_cfg_defaults, parse_args, set_deterministic, setup_config
 
 
 def main(cfg, args):
-    if args.mode == "train":
-        trainer = Trainer(cfg, resume=args.resume)
-        trainer.run()
-    else:
-        raise ValueError("Invalid mode")
+    trainer = Trainer(cfg, resume=args.resume)
+    trainer.run()
 
 
 if __name__ == "__main__":

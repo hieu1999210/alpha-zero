@@ -7,4 +7,3 @@ test/
 *.json
 *push.sh
 run_test.sh
-pretrained_models*

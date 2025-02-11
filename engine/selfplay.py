@@ -117,16 +117,13 @@ class Selfplay:
             policies[i] = policy
             values[i, 0] = value
 
-        exp_file = os.path.join(
-            self.exp_folder, f"iter_{idx:0>3}_{num_exp:0>6}_samples.npy"
-        )
+        exp_filename = f"iter_{idx:0>3}_{num_exp:0>6}_samples.npy"
         data = {
             "states": boards.astype(np.int8),
             "policies": policies,
             "values": values,
         }
-
-        self.checkpointer.save_data(exp_file, data, iter=idx, epoch=0)
+        self.checkpointer.save_data(exp_filename, data, iter=idx, epoch=0)
 
         del boards
         del policies

@@ -29,4 +29,4 @@ SOLVER:
   UPDATE_THRESH: 0.6
 
 DIRS:
-  OUTPUTS: /home/ad/Documents/runs/
+  OUTPUTS: ./runs

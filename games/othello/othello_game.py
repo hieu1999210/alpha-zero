@@ -1,8 +1,3 @@
-"""
-The following Othello implementation is from:
-https://github.com/suragnair/alpha-zero-general
-"""
-
 from __future__ import print_function
 
 import numpy as np
